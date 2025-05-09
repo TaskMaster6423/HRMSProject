@@ -5,6 +5,141 @@
 	if(strlen($_SESSION['userlogin'])==0){
 		header('location:login.php');
 	}
+
+	// Fetch total projects
+	$projectCount = 0;
+	try {
+		$sql = "SELECT COUNT(*) as total FROM projects";
+		$query = $dbh->prepare($sql);
+		$query->execute();
+		$projectCount = $query->fetch(PDO::FETCH_OBJ)->total;
+	} catch (Exception $e) {
+		$projectCount = 0;
+	}
+
+	// Fetch total clients
+	$clientCount = 0;
+	try {
+		$sql = "SELECT COUNT(*) as total FROM clients";
+		$query = $dbh->prepare($sql);
+		$query->execute();
+		$clientCount = $query->fetch(PDO::FETCH_OBJ)->total;
+	} catch (Exception $e) {
+		$clientCount = 0;
+	}
+
+	// Fetch total tasks
+	$taskCount = 0;
+	try {
+		$sql = "SELECT COUNT(*) as total FROM tasks";
+		$query = $dbh->prepare($sql);
+		$query->execute();
+		$taskCount = $query->fetch(PDO::FETCH_OBJ)->total;
+	} catch (Exception $e) {
+		$taskCount = 0;
+	}
+
+	// Fetch total employees
+	$employeeCount = 0;
+	try {
+		$sql = "SELECT COUNT(*) as total FROM employees";
+		$query = $dbh->prepare($sql);
+		$query->execute();
+		$employeeCount = $query->fetch(PDO::FETCH_OBJ)->total;
+	} catch (Exception $e) {
+		$employeeCount = 0;
+	}
+
+	// Fetch new employees (last 30 days)
+	$newEmployeeCount = 0;
+	try {
+		$sql = "SELECT COUNT(*) as total FROM employees WHERE JoinDate >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+		$query = $dbh->prepare($sql);
+		$query->execute();
+		$newEmployeeCount = $query->fetch(PDO::FETCH_OBJ)->total;
+	} catch (Exception $e) {
+		$newEmployeeCount = 0;
+	}
+
+	// Calculate employee growth percentage
+	$employeeGrowth = 0;
+	if($employeeCount > 0) {
+		$employeeGrowth = round(($newEmployeeCount / $employeeCount) * 100, 1);
+	}
+
+	// Fetch earnings data
+	$currentEarnings = 0;
+	$previousEarnings = 0;
+	try {
+		$sql = "SELECT 
+			SUM(CASE WHEN MONTH(date) = MONTH(CURRENT_DATE()) THEN amount ELSE 0 END) as current,
+			SUM(CASE WHEN MONTH(date) = MONTH(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)) THEN amount ELSE 0 END) as previous
+			FROM earnings";
+		$query = $dbh->prepare($sql);
+		$query->execute();
+		$result = $query->fetch(PDO::FETCH_OBJ);
+		$currentEarnings = $result->current ?? 0;
+		$previousEarnings = $result->previous ?? 0;
+	} catch (Exception $e) {
+		$currentEarnings = 0;
+		$previousEarnings = 0;
+	}
+
+	// Calculate earnings growth
+	$earningsGrowth = 0;
+	if($previousEarnings > 0) {
+		$earningsGrowth = round((($currentEarnings - $previousEarnings) / $previousEarnings) * 100, 1);
+	}
+
+	// Fetch expenses data
+	$currentExpenses = 0;
+	$previousExpenses = 0;
+	try {
+		$sql = "SELECT 
+			SUM(CASE WHEN MONTH(date) = MONTH(CURRENT_DATE()) THEN amount ELSE 0 END) as current,
+			SUM(CASE WHEN MONTH(date) = MONTH(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)) THEN amount ELSE 0 END) as previous
+			FROM expenses";
+		$query = $dbh->prepare($sql);
+		$query->execute();
+		$result = $query->fetch(PDO::FETCH_OBJ);
+		$currentExpenses = $result->current ?? 0;
+		$previousExpenses = $result->previous ?? 0;
+	} catch (Exception $e) {
+		$currentExpenses = 0;
+		$previousExpenses = 0;
+	}
+
+	// Calculate expenses growth
+	$expensesGrowth = 0;
+	if($previousExpenses > 0) {
+		$expensesGrowth = round((($currentExpenses - $previousExpenses) / $previousExpenses) * 100, 1);
+	}
+
+	// Calculate profit
+	$currentProfit = $currentEarnings - $currentExpenses;
+	$previousProfit = $previousEarnings - $previousExpenses;
+
+	// Calculate profit growth
+	$profitGrowth = 0;
+	if($previousProfit > 0) {
+		$profitGrowth = round((($currentProfit - $previousProfit) / $previousProfit) * 100, 1);
+	}
+
+	// Fetch recent projects
+	$recentProjects = [];
+	try {
+		$sql = "SELECT p.*, 
+			(SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'open') as open_tasks,
+			(SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'completed') as completed_tasks
+			FROM projects p 
+			ORDER BY p.created_at DESC 
+			LIMIT 5";
+		$query = $dbh->prepare($sql);
+		$query->execute();
+		$recentProjects = $query->fetchAll(PDO::FETCH_OBJ);
+	} catch (Exception $e) {
+		$recentProjects = [];
+	}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -79,37 +214,29 @@
 								<div class="card-body">
 									<span class="dash-widget-icon"><i class="fa fa-cubes"></i></span>
 									<div class="dash-widget-info">
-										<h3>112</h3>
+										<h3><?php echo $projectCount; ?></h3>
 										<span>Projects</span>
 									</div>
 								</div>
 							</div>
 						</div>
-						<?php 
-										$sql = "SELECT id from clients";
-										$query = $dbh->prepare($sql);
-										$query->execute();
-										$results = $query->fetchAll(PDO::FETCH_OBJ);
-										$totalcount = $query->rowCount();
-									?>
 						<div class="col-md-6 col-sm-6 col-lg-6 col-xl-3">
 							<div class="card dash-widget">
 								<div class="card-body">
 									<span class="dash-widget-icon"><i class="fa fa-users"></i></span>
 									<div class="dash-widget-info">
-										<h3><?php echo $totalcount; ?></h3>
+										<h3><?php echo $clientCount; ?></h3>
 										<span>Clients</span>
 									</div>
 								</div>
 							</div>
 						</div>
 						<div class="col-md-6 col-sm-6 col-lg-6 col-xl-3">
-							
 							<div class="card dash-widget">
 								<div class="card-body">
 									<span class="dash-widget-icon"><i class="fa fa-diamond"></i></span>
 									<div class="dash-widget-info">
-										<h3>37</h3>
+										<h3><?php echo $taskCount; ?></h3>
 										<span>Tasks</span>
 									</div>
 								</div>
@@ -120,15 +247,13 @@
 								<div class="card-body">
 									<span class="dash-widget-icon"><i class="fa fa-user"></i></span>
 									<div class="dash-widget-info">
-										<h3>218</h3>
+										<h3><?php echo $employeeCount; ?></h3>
 										<span>Employees</span>
 									</div>
 								</div>
 							</div>
 						</div>
 					</div>
-					
-					
 					
 					<div class="row">
 						<div class="col-md-12">
@@ -140,14 +265,14 @@
 												<span class="d-block">New Employees</span>
 											</div>
 											<div>
-												<span class="text-success">+10%</span>
+												<span class="text-success">+<?php echo $employeeGrowth; ?>%</span>
 											</div>
 										</div>
-										<h3 class="mb-3">10</h3>
+										<h3 class="mb-3"><?php echo $newEmployeeCount; ?></h3>
 										<div class="progress mb-2" style="height: 5px;">
-											<div class="progress-bar bg-primary" role="progressbar" style="width: 70%;" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100"></div>
+											<div class="progress-bar bg-primary" role="progressbar" style="width: <?php echo $employeeGrowth; ?>%;" aria-valuenow="<?php echo $employeeGrowth; ?>" aria-valuemin="0" aria-valuemax="100"></div>
 										</div>
-										<p class="mb-0">Overall Employees 218</p>
+										<p class="mb-0">Overall Employees <?php echo $employeeCount; ?></p>
 									</div>
 								</div>
 							
@@ -158,14 +283,14 @@
 												<span class="d-block">Earnings</span>
 											</div>
 											<div>
-												<span class="text-success">+12.5%</span>
+												<span class="text-<?php echo $earningsGrowth >= 0 ? 'success' : 'danger'; ?>"><?php echo $earningsGrowth >= 0 ? '+' : ''; ?><?php echo $earningsGrowth; ?>%</span>
 											</div>
 										</div>
-										<h3 class="mb-3">$1,42,300</h3>
+										<h3 class="mb-3">$<?php echo number_format($currentEarnings, 2); ?></h3>
 										<div class="progress mb-2" style="height: 5px;">
-											<div class="progress-bar bg-primary" role="progressbar" style="width: 70%;" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100"></div>
+											<div class="progress-bar bg-primary" role="progressbar" style="width: <?php echo abs($earningsGrowth); ?>%;" aria-valuenow="<?php echo abs($earningsGrowth); ?>" aria-valuemin="0" aria-valuemax="100"></div>
 										</div>
-										<p class="mb-0">Previous Month <span class="text-muted">$1,15,852</span></p>
+										<p class="mb-0">Previous Month <span class="text-muted">$<?php echo number_format($previousEarnings, 2); ?></span></p>
 									</div>
 								</div>
 							
@@ -176,14 +301,14 @@
 												<span class="d-block">Expenses</span>
 											</div>
 											<div>
-												<span class="text-danger">-2.8%</span>
+												<span class="text-<?php echo $expensesGrowth <= 0 ? 'success' : 'danger'; ?>"><?php echo $expensesGrowth >= 0 ? '+' : ''; ?><?php echo $expensesGrowth; ?>%</span>
 											</div>
 										</div>
-										<h3 class="mb-3">$8,500</h3>
+										<h3 class="mb-3">$<?php echo number_format($currentExpenses, 2); ?></h3>
 										<div class="progress mb-2" style="height: 5px;">
-											<div class="progress-bar bg-primary" role="progressbar" style="width: 70%;" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100"></div>
+											<div class="progress-bar bg-primary" role="progressbar" style="width: <?php echo abs($expensesGrowth); ?>%;" aria-valuenow="<?php echo abs($expensesGrowth); ?>" aria-valuemin="0" aria-valuemax="100"></div>
 										</div>
-										<p class="mb-0">Previous Month <span class="text-muted">$7,500</span></p>
+										<p class="mb-0">Previous Month <span class="text-muted">$<?php echo number_format($previousExpenses, 2); ?></span></p>
 									</div>
 								</div>
 							
@@ -194,21 +319,19 @@
 												<span class="d-block">Profit</span>
 											</div>
 											<div>
-												<span class="text-danger">-75%</span>
+												<span class="text-<?php echo $profitGrowth >= 0 ? 'success' : 'danger'; ?>"><?php echo $profitGrowth >= 0 ? '+' : ''; ?><?php echo $profitGrowth; ?>%</span>
 											</div>
 										</div>
-										<h3 class="mb-3">$1,12,000</h3>
+										<h3 class="mb-3">$<?php echo number_format($currentProfit, 2); ?></h3>
 										<div class="progress mb-2" style="height: 5px;">
-											<div class="progress-bar bg-primary" role="progressbar" style="width: 70%;" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100"></div>
+											<div class="progress-bar bg-primary" role="progressbar" style="width: <?php echo abs($profitGrowth); ?>%;" aria-valuenow="<?php echo abs($profitGrowth); ?>" aria-valuemin="0" aria-valuemax="100"></div>
 										</div>
-										<p class="mb-0">Previous Month <span class="text-muted">$1,42,000</span></p>
+										<p class="mb-0">Previous Month <span class="text-muted">$<?php echo number_format($previousProfit, 2); ?></span></p>
 									</div>
 								</div>
 							</div>
 						</div>	
 					</div>
-					
-					
 					
 					<div class="row">
 						<div class="col-md-12 d-flex">
@@ -227,132 +350,51 @@
 												</tr>
 											</thead>
 											<tbody>
-												<tr>
-													<td>
-														<h2><a href="project-view.php">Office Management</a></h2>
-														<small class="block text-ellipsis">
-															<span>1</span> <span class="text-muted">open tasks, </span>
-															<span>9</span> <span class="text-muted">tasks completed</span>
-														</small>
-													</td>
-													<td>
-														<div class="progress progress-xs progress-striped">
-															<div class="progress-bar" role="progressbar" data-toggle="tooltip" title="65%" style="width: 65%"></div>
-														</div>
-													</td>
-													<td class="text-right">
-														<div class="dropdown dropdown-action">
-															<a href="#" class="action-icon dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><i class="material-icons">more_vert</i></a>
-															<div class="dropdown-menu dropdown-menu-right">
-																<a class="dropdown-item" href="javascript:void(0)"><i class="fa fa-pencil m-r-5"></i> Edit</a>
-																<a class="dropdown-item" href="javascript:void(0)"><i class="fa fa-trash-o m-r-5"></i> Delete</a>
-															</div>
-														</div>
-													</td>
-												</tr>
-												<tr>
-													<td>
-														<h2><a href="project-view.php">Project Management</a></h2>
-														<small class="block text-ellipsis">
-															<span>2</span> <span class="text-muted">open tasks, </span>
-															<span>5</span> <span class="text-muted">tasks completed</span>
-														</small>
-													</td>
-													<td>
-														<div class="progress progress-xs progress-striped">
-															<div class="progress-bar" role="progressbar" data-toggle="tooltip" title="15%" style="width: 15%"></div>
-														</div>
-													</td>
-													<td class="text-right">
-														<div class="dropdown dropdown-action">
-															<a href="#" class="action-icon dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><i class="material-icons">more_vert</i></a>
-															<div class="dropdown-menu dropdown-menu-right">
-																<a class="dropdown-item" href="javascript:void(0)"><i class="fa fa-pencil m-r-5"></i> Edit</a>
-																<a class="dropdown-item" href="javascript:void(0)"><i class="fa fa-trash-o m-r-5"></i> Delete</a>
-															</div>
-														</div>
-													</td>
-												</tr>
-												<tr>
-													<td>
-														<h2><a href="project-view.php">Video Calling App</a></h2>
-														<small class="block text-ellipsis">
-															<span>3</span> <span class="text-muted">open tasks, </span>
-															<span>3</span> <span class="text-muted">tasks completed</span>
-														</small>
-													</td>
-													<td>
-														<div class="progress progress-xs progress-striped">
-															<div class="progress-bar" role="progressbar" data-toggle="tooltip" title="49%" style="width: 49%"></div>
-														</div>
-													</td>
-													<td class="text-right">
-														<div class="dropdown dropdown-action">
-															<a href="#" class="action-icon dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><i class="material-icons">more_vert</i></a>
-															<div class="dropdown-menu dropdown-menu-right">
-																<a class="dropdown-item" href="javascript:void(0)"><i class="fa fa-pencil m-r-5"></i> Edit</a>
-																<a class="dropdown-item" href="javascript:void(0)"><i class="fa fa-trash-o m-r-5"></i> Delete</a>
-															</div>
-														</div>
-													</td>
-												</tr>
-												<tr>
-													<td>
-														<h2><a href="project-view.php">Hospital Administration</a></h2>
-														<small class="block text-ellipsis">
-															<span>12</span> <span class="text-muted">open tasks, </span>
-															<span>4</span> <span class="text-muted">tasks completed</span>
-														</small>
-													</td>
-													<td>
-														<div class="progress progress-xs progress-striped">
-															<div class="progress-bar" role="progressbar" data-toggle="tooltip" title="88%" style="width: 88%"></div>
-														</div>
-													</td>
-													<td class="text-right">
-														<div class="dropdown dropdown-action">
-															<a href="#" class="action-icon dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><i class="material-icons">more_vert</i></a>
-															<div class="dropdown-menu dropdown-menu-right">
-																<a class="dropdown-item" href="javascript:void(0)"><i class="fa fa-pencil m-r-5"></i> Edit</a>
-																<a class="dropdown-item" href="javascript:void(0)"><i class="fa fa-trash-o m-r-5"></i> Delete</a>
-															</div>
-														</div>
-													</td>
-												</tr>
-												<tr>
-													<td>
-														<h2><a href="project-view.php">Digital Marketplace</a></h2>
-														<small class="block text-ellipsis">
-															<span>7</span> <span class="text-muted">open tasks, </span>
-															<span>14</span> <span class="text-muted">tasks completed</span>
-														</small>
-													</td>
-													<td>
-														<div class="progress progress-xs progress-striped">
-															<div class="progress-bar" role="progressbar" data-toggle="tooltip" title="100%" style="width: 100%"></div>
-														</div>
-													</td>
-													<td class="text-right">
-														<div class="dropdown dropdown-action">
-															<a href="#" class="action-icon dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><i class="material-icons">more_vert</i></a>
-															<div class="dropdown-menu dropdown-menu-right">
-																<a class="dropdown-item" href="javascript:void(0)"><i class="fa fa-pencil m-r-5"></i> Edit</a>
-																<a class="dropdown-item" href="javascript:void(0)"><i class="fa fa-trash-o m-r-5"></i> Delete</a>
-															</div>
-														</div>
-													</td>
-												</tr>
+												<?php if(count($recentProjects) > 0): ?>
+													<?php foreach($recentProjects as $project): ?>
+														<tr>
+															<td>
+																<h2><a href="project-view.php?id=<?php echo $project->id; ?>"><?php echo htmlentities($project->name); ?></a></h2>
+																<small class="block text-ellipsis">
+																	<span><?php echo $project->open_tasks; ?></span> <span class="text-muted">open tasks, </span>
+																	<span><?php echo $project->completed_tasks; ?></span> <span class="text-muted">tasks completed</span>
+																</small>
+															</td>
+															<td>
+																<div class="progress progress-xs progress-striped">
+																	<?php 
+																		$progress = 0;
+																		$total_tasks = $project->open_tasks + $project->completed_tasks;
+																		if($total_tasks > 0) {
+																			$progress = round(($project->completed_tasks / $total_tasks) * 100);
+																		}
+																	?>
+																	<div class="progress-bar" role="progressbar" data-toggle="tooltip" title="<?php echo $progress; ?>%" style="width: <?php echo $progress; ?>%"></div>
+																</div>
+															</td>
+															<td class="text-right">
+																<div class="dropdown dropdown-action">
+																	<a href="#" class="action-icon dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><i class="material-icons">more_vert</i></a>
+																	<div class="dropdown-menu dropdown-menu-right">
+																		<a class="dropdown-item" href="edit-project.php?id=<?php echo $project->id; ?>"><i class="fa fa-pencil m-r-5"></i> Edit</a>
+																		<a class="dropdown-item" href="javascript:void(0)" onclick="deleteProject(<?php echo $project->id; ?>)"><i class="fa fa-trash-o m-r-5"></i> Delete</a>
+																	</div>
+																</div>
+															</td>
+														</tr>
+													<?php endforeach; ?>
+												<?php else: ?>
+													<tr>
+														<td colspan="3" class="text-center">No projects found</td>
+													</tr>
+												<?php endif; ?>
 											</tbody>
 										</table>
 									</div>
 								</div>
-								<div class="card-footer">
-									<a href="projects.php">View all projects</a>
-								</div>
 							</div>
 						</div>
 					</div>
-				
 				</div>
 				<!-- /Page Content -->
 
@@ -381,5 +423,13 @@
 		<!-- Custom JS -->
 		<script src="assets/js/app.js"></script>
 		<!-- javascript links ends here  -->
+		
+		<script>
+			function deleteProject(id) {
+				if(confirm('Are you sure you want to delete this project?')) {
+					window.location.href = 'delete-project.php?id=' + id;
+				}
+			}
+		</script>
     </body>
 </html>
