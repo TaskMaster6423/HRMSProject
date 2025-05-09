@@ -1,6 +1,7 @@
 <?php
 session_start();
-error_reporting(0);
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 include_once("includes/config.php");
 
 // Check if user is already logged in
@@ -12,87 +13,105 @@ if(isset($_SESSION['userlogin']) && !empty($_SESSION['userlogin'])){
 $success = '';
 $error = '';
 
-// Process registration form
-if(isset($_POST['register'])){
-	$username = htmlspecialchars(trim($_POST['username']));
-	$password = trim($_POST['password']);
-	$confirmPassword = trim($_POST['confirm_password']);
-	$firstName = htmlspecialchars(trim($_POST['first_name']));
-	$lastName = htmlspecialchars(trim($_POST['last_name']));
-	$email = htmlspecialchars(trim($_POST['email']));
-	
-	// Validate input
-	if(empty($username) || empty($password) || empty($confirmPassword) || empty($firstName) || empty($lastName) || empty($email)){
-		$error = '
-		<div class="alert alert-danger alert-dismissible fade show" role="alert">
-			<strong>Error!</strong> All fields are required.
-			<button type="button" class="close" data-dismiss="alert" aria-label="Close">
-				<span aria-hidden="true">&times;</span>
-			</button>
-		</div>';
-	} elseif($password !== $confirmPassword){
-		$error = '
-		<div class="alert alert-danger alert-dismissible fade show" role="alert">
-			<strong>Error!</strong> Passwords do not match.
-			<button type="button" class="close" data-dismiss="alert" aria-label="Close">
-				<span aria-hidden="true">&times;</span>
-			</button>
-		</div>';
-	} elseif(strlen($password) < 8){
-		$error = '
-		<div class="alert alert-danger alert-dismissible fade show" role="alert">
-			<strong>Error!</strong> Password must be at least 8 characters long.
-			<button type="button" class="close" data-dismiss="alert" aria-label="Close">
-				<span aria-hidden="true">&times;</span>
-			</button>
-		</div>';
-	} else {
-		// Check if username already exists
-		$sql = "SELECT UserName FROM users WHERE UserName = :username";
-		$query = $dbh->prepare($sql);
-		$query->bindParam(':username', $username, PDO::PARAM_STR);
-		$query->execute();
+try {
+	// Process registration form
+	if(isset($_POST['register'])){
+		$username = htmlspecialchars(trim($_POST['username']));
+		$password = trim($_POST['password']);
+		$confirmPassword = trim($_POST['confirm_password']);
+		$firstName = htmlspecialchars(trim($_POST['first_name']));
+		$lastName = htmlspecialchars(trim($_POST['last_name']));
+		$email = htmlspecialchars(trim($_POST['email']));
 		
-		if($query->rowCount() > 0){
+		// Validate input
+		if(empty($username) || empty($password) || empty($confirmPassword) || empty($firstName) || empty($lastName) || empty($email)){
 			$error = '
 			<div class="alert alert-danger alert-dismissible fade show" role="alert">
-				<strong>Error!</strong> Username already exists.
+				<strong>Error!</strong> All fields are required.
+				<button type="button" class="close" data-dismiss="alert" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>';
+		} elseif($password !== $confirmPassword){
+			$error = '
+			<div class="alert alert-danger alert-dismissible fade show" role="alert">
+				<strong>Error!</strong> Passwords do not match.
+				<button type="button" class="close" data-dismiss="alert" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>';
+		} elseif(strlen($password) < 8){
+			$error = '
+			<div class="alert alert-danger alert-dismissible fade show" role="alert">
+				<strong>Error!</strong> Password must be at least 8 characters long.
 				<button type="button" class="close" data-dismiss="alert" aria-label="Close">
 					<span aria-hidden="true">&times;</span>
 				</button>
 			</div>';
 		} else {
-			// Hash password
-			$hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-			
-			// Insert new user
-			$sql = "INSERT INTO users (UserName, Password, FirstName, LastName, Email, Status, CreatedAt) VALUES (:username, :password, :firstname, :lastname, :email, 1, NOW())";
+			// Check if username already exists
+			$sql = "SELECT UserName FROM users WHERE UserName = :username";
 			$query = $dbh->prepare($sql);
 			$query->bindParam(':username', $username, PDO::PARAM_STR);
-			$query->bindParam(':password', $hashedPassword, PDO::PARAM_STR);
-			$query->bindParam(':firstname', $firstName, PDO::PARAM_STR);
-			$query->bindParam(':lastname', $lastName, PDO::PARAM_STR);
-			$query->bindParam(':email', $email, PDO::PARAM_STR);
+			$query->execute();
 			
-			if($query->execute()){
-				$success = '
-				<div class="alert alert-success alert-dismissible fade show" role="alert">
-					<strong>Success!</strong> Registration successful. You can now login.
+			if($query->rowCount() > 0){
+				$error = '
+				<div class="alert alert-danger alert-dismissible fade show" role="alert">
+					<strong>Error!</strong> Username already exists.
 					<button type="button" class="close" data-dismiss="alert" aria-label="Close">
 						<span aria-hidden="true">&times;</span>
 					</button>
 				</div>';
 			} else {
-				$error = '
-				<div class="alert alert-danger alert-dismissible fade show" role="alert">
-					<strong>Error!</strong> Something went wrong. Please try again.
-					<button type="button" class="close" data-dismiss="alert" aria-label="Close">
-						<span aria-hidden="true">&times;</span>
-					</button>
-				</div>';
+				// Hash password
+				$hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+				
+				// Insert new user
+				$sql = "INSERT INTO users (UserName, Password, FirstName, LastName, Email) VALUES (:username, :password, :firstname, :lastname, :email)";
+				$query = $dbh->prepare($sql);
+				$query->bindParam(':username', $username, PDO::PARAM_STR);
+				$query->bindParam(':password', $hashedPassword, PDO::PARAM_STR);
+				$query->bindParam(':firstname', $firstName, PDO::PARAM_STR);
+				$query->bindParam(':lastname', $lastName, PDO::PARAM_STR);
+				$query->bindParam(':email', $email, PDO::PARAM_STR);
+				
+				if($query->execute()){
+					$success = '
+					<div class="alert alert-success alert-dismissible fade show" role="alert">
+						<strong>Success!</strong> Registration successful. You can now login.
+						<button type="button" class="close" data-dismiss="alert" aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+					</div>';
+				} else {
+					$error = '
+					<div class="alert alert-danger alert-dismissible fade show" role="alert">
+						<strong>Error!</strong> Something went wrong. Please try again.
+						<button type="button" class="close" data-dismiss="alert" aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+					</div>';
+				}
 			}
 		}
 	}
+} catch (PDOException $e) {
+	$error = '
+	<div class="alert alert-danger alert-dismissible fade show" role="alert">
+		<strong>Database Error!</strong> ' . $e->getMessage() . '
+		<button type="button" class="close" data-dismiss="alert" aria-label="Close">
+			<span aria-hidden="true">&times;</span>
+		</button>
+	</div>';
+} catch (Exception $e) {
+	$error = '
+	<div class="alert alert-danger alert-dismissible fade show" role="alert">
+		<strong>Error!</strong> ' . $e->getMessage() . '
+		<button type="button" class="close" data-dismiss="alert" aria-label="Close">
+			<span aria-hidden="true">&times;</span>
+		</button>
+	</div>';
 }
 ?>
 <!DOCTYPE html>
