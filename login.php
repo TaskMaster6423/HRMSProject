@@ -28,7 +28,7 @@
 					</button>
 				</div>';
 			} else {
-				$sql = "SELECT UserName, Password, FirstName, LastName, Status from users where UserName=:username";
+				$sql = "SELECT UserName, Password, FirstName, LastName from users where UserName=:username";
 				$query = $dbh->prepare($sql);
 				$query->bindParam(':username', $username, PDO::PARAM_STR);
 				$query->execute();
@@ -39,48 +39,36 @@
 						$hashpass = $row->Password;
 						$firstName = $row->FirstName;
 						$lastName = $row->LastName;
-						$status = $row->Status;
 					}
 					
-					// Check if account is active
-					if($status == 0) {
-						$wrongusername = '
+					//verifying Password
+					if (password_verify($password, $hashpass)) {
+						$_SESSION['userlogin'] = $username;
+						$_SESSION['userFullName'] = $firstName . ' ' . $lastName;
+						
+						// Set remember me cookie if checked
+						if($remember) {
+							$token = bin2hex(random_bytes(32));
+							setcookie('remember_token', $token, time() + (86400 * 30), "/"); // 30 days
+							
+							// Store token in database
+							$sql = "UPDATE users SET remember_token = :token WHERE UserName = :username";
+							$query = $dbh->prepare($sql);
+							$query->bindParam(':token', $token, PDO::PARAM_STR);
+							$query->bindParam(':username', $username, PDO::PARAM_STR);
+							$query->execute();
+						}
+						
+						header('location:index.php');
+						exit();
+					} else {
+						$wrongpassword = '
 						<div class="alert alert-danger alert-dismissible fade show" role="alert">
-							<strong>Error!</strong> Your account is inactive. Please contact administrator.
+							<strong>Error!</strong> Invalid password.
 							<button type="button" class="close" data-dismiss="alert" aria-label="Close">
 								<span aria-hidden="true">&times;</span>
 							</button>
 						</div>';
-					} else {
-						//verifying Password
-						if (password_verify($password, $hashpass)) {
-							$_SESSION['userlogin'] = $username;
-							$_SESSION['userFullName'] = $firstName . ' ' . $lastName;
-							
-							// Set remember me cookie if checked
-							if($remember) {
-								$token = bin2hex(random_bytes(32));
-								setcookie('remember_token', $token, time() + (86400 * 30), "/"); // 30 days
-								
-								// Store token in database
-								$sql = "UPDATE users SET remember_token = :token WHERE UserName = :username";
-								$query = $dbh->prepare($sql);
-								$query->bindParam(':token', $token, PDO::PARAM_STR);
-								$query->bindParam(':username', $username, PDO::PARAM_STR);
-								$query->execute();
-							}
-							
-							header('location:index.php');
-							exit();
-						} else {
-							$wrongpassword = '
-							<div class="alert alert-danger alert-dismissible fade show" role="alert">
-								<strong>Error!</strong> Invalid password.
-								<button type="button" class="close" data-dismiss="alert" aria-label="Close">
-									<span aria-hidden="true">&times;</span>
-								</button>
-							</div>';
-						}
 					}
 				} else {
 					$wrongusername = '
@@ -231,4 +219,35 @@
 							<!-- /Account Form -->
 						</div>
 					</div>
-				</d
+				</div>
+			</div>
+		</div>
+		<!-- /Main Wrapper -->
+		
+		<!-- jQuery -->
+		<script src="assets/js/jquery-3.2.1.min.js"></script>
+		
+		<!-- Bootstrap Core JS -->
+		<script src="assets/js/popper.min.js"></script>
+		<script src="assets/js/bootstrap.min.js"></script>
+		
+		<!-- Custom JS -->
+		<script src="assets/js/app.js"></script>
+		
+		<script>
+			function togglePassword() {
+				var x = document.getElementById("password");
+				var icon = document.querySelector(".password-toggle i");
+				if (x.type === "password") {
+					x.type = "text";
+					icon.classList.remove("fa-eye");
+					icon.classList.add("fa-eye-slash");
+				} else {
+					x.type = "password";
+					icon.classList.remove("fa-eye-slash");
+					icon.classList.add("fa-eye");
+				}
+			}
+		</script>
+	</body>
+</html>
